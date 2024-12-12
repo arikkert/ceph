@@ -1,0 +1,19 @@
+#
+# https://www.server-world.info/en/note?os=Ubuntu_24.04&p=ceph14&f=4
+#
+
+# stop MDS
+
+[root@node01 ~]# systemctl stop ceph-mds@node01
+
+[root@node01 ~]# ceph mds fail 0
+# delete CephFS
+
+[root@node01 ~]# ceph fs rm cephfs --yes-i-really-mean-it
+# delete pools
+
+# ceph osd pool delete [Pool Name] [Pool Name] ***
+
+[root@node01 ~]# ceph osd pool delete cephfs_data cephfs_data --yes-i-really-really-mean-it
+
+[root@node01 ~]# ceph osd pool delete cephfs_metadata cephfs_metadata --yes-i-really-really-mean-it

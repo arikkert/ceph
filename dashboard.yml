@@ -1,0 +1,88 @@
+#
+# https://www.ibm.com/docs/en/storage-ceph/5?topic=access-enabling-storage-ceph-dashboard-manually
+#
+
+---
+- name: Install CEPH dashboard
+  hosts: cephadmin
+  become: true
+  tasks:
+
+    - name: Ensure ceph dashboard packages are installed
+      ansible.builtin.apt:
+        name:
+          - cephadm
+          - ceph-mgr-dashboard
+        update_cache: true
+
+    - name: Ensure dashboard module is checked if on or off
+      ansible.builtin.command: cephadm shell ceph mgr module ls
+      register: result
+      check_mode: false
+      changed_when: false
+
+    - name: Ensure dashboard module is enabled
+      ansible.builtin.command: cephadm shell ceph mgr module enable dashboard
+      when: "'dashboard          on' is not in result.stdout"
+
+    # Currently does not work in Ubuntu 24.04 (bug).
+    # So I choosed the easy way out, to skip this step and disable SSL later.
+    # Conigure SSL by yourself if you want it.
+    - name: Ensure self siged cert is created
+      ansible.builtin.command: ceph dashboard create-self-signed-cert
+      when: false
+
+    - name: Ensure SSL config is determined
+      ansible.builtin.command: ceph config get mgr mgr/dashboard/ssl
+      register: result
+      check_mode: false
+      changed_when: false
+
+    - name: Ensure SSL is disabled
+      ansible.builtin.command: ceph config set mgr mgr/dashboard/ssl false
+      when: "'false' not in result.stdout"
+
+    - name: Ensure services list is created and saved
+      ansible.builtin.command: ceph mgr services
+      register: result
+      check_mode: false
+      changed_when: false
+
+    - name: Ensure service list is shown
+      ansible.builtin.debug:
+        var: result.stdout_lines
+
+    - name: Ensure dashboard user admin exists
+      ansible.builtin.command: ceph dashboard ac-user-show admin
+      register: result
+      check_mode: false
+      changed_when: false
+      failed_when: false
+
+    - name: Ensure password file is present
+      ansible.builtin.copy:
+        src: password.txt
+        dest: .
+        mode: "0600"
+
+    - name: Ensure dashboard user admin is added with administrator permissions
+      ansible.builtin.command: ceph dashboard ac-user-create admin -i password.txt administrator
+      when: result.rc != 0
+      register: result2
+
+    - name: Ensure result is shown
+      ansible.builtin.debug:
+        var: result2.stdout_lines
+      when: result2.stdout_lines is defined
+
+    - name: Ensure dashboard user is deleted
+      ansible.builtin.command: ceph dashboard ac-user-delete admin
+      register: result
+      when: false
+
+    - name: Ensure result is shown of deleted admin user
+      ansible.builtin.debug:
+        var: result.stdout_lines
+      when: result.stdout_lines is defined
+
+...

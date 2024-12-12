@@ -1,0 +1,12 @@
+#!/bin/bash
+# File managed by Ansible
+# TODO: maak idempotent
+
+#
+# CephFS = Ceph File System
+#
+
+sudo ceph-authtool -p /etc/ceph/ceph.client.admin.keyring > /var/tmp/admin.key
+chmod 600 /var/tmp/admin.key
+sudo mkdir -p /mnt/cephfs
+sudo mount -t ceph {{ cephmounthost }}:6789:/ /mnt/cephfs -o name=admin,secretfile=/var/tmp/admin.key

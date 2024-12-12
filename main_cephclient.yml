@@ -1,0 +1,78 @@
+#
+#
+---
+- name: Ensure ceph.client.admin.keyring is fetched from Admin node ( for copying later to the cephclient(s) )
+  hosts: cephadmin
+  become: true
+  tasks:
+    - name: Copy ceph01:/etc/ceph/ceph.client.admin.keyring to ceph-client:/etc/ceph/ [1]
+      ansible.builtin.fetch:
+        src: /etc/ceph/ceph.client.admin.keyring
+        dest: /tmp/
+        flat: true
+
+- name: Configure Ceph clients
+  hosts: cephclients
+  become: true
+  tasks:
+
+    - name: TZ {{ timezone }}
+      community.general.timezone:
+        name: "{{ timezone }}"
+
+    - name: Ensure ceph-common is installed
+      ansible.builtin.apt:
+        name: ceph-common
+        update_cache: true
+
+    - name: Ensure ceph.conf is configured via template
+      ansible.builtin.template:
+        src: "{{ item }}.j2"
+        dest: /etc/ceph/{{ item }}
+        mode: "0644"
+      loop:
+        - ceph.conf
+
+    - name: Copy ceph01:/etc/ceph/ceph.client.admin.keyring to ceph-client:/etc/ceph/ [2]
+      ansible.builtin.copy:
+        src: /tmp/ceph.client.admin.keyring
+        dest: /etc/ceph/
+        mode: "0644"
+
+    - name: Ensure ceph config files have correct owner/group [1]
+      ansible.builtin.find:
+        paths: /etc/ceph/
+        pattern: "ceph.*"
+      register: filelist
+    - name: Ensure ceph config files have correct owner/group [2]
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        owner: ceph
+        group: ceph
+      loop: "{{ filelist.files }}"
+
+    - name: Ensure some own tools exist on target {{ ansible_host }}
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "{{ item }}"
+        mode: "0755"
+        owner: ansible
+        group: ansible
+      loop:
+        - client_rbd_add.sh
+        - client_rbd_del.sh
+        - create_file
+        - gather
+        - mount_ceph
+
+    - name: Ensure some own tools exist on target {{ ansible_host }}
+      ansible.builtin.template:
+        src: "{{ item }}.j2"
+        dest: "{{ item }}"
+        mode: "0755"
+        owner: ansible
+        group: ansible
+      loop:
+        - client_cephfs_add.sh
+
+...

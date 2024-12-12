@@ -1,0 +1,3 @@
+TODO: for now I just took the env of the cephadmin host(group) regarding host, subnet and network
+      Check later if this a good choice
+      Maybe let the user decide via custom variables for this purpose

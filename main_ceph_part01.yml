@@ -1,0 +1,153 @@
+#
+#
+---
+- name: Aleen Admin node
+  hosts: cephadmin
+  become: true
+  tasks:
+
+    - name: Generate secret key for Cluster monitoring
+      ansible.builtin.command: ceph-authtool --create-keyring /etc/ceph/ceph.mon.keyring --gen-key -n mon. --cap mon 'allow *'
+      args:
+        creates: /etc/ceph/ceph.mon.keyring
+    - name: Generate secret key for Cluster admin
+      ansible.builtin.command: ceph-authtool --create-keyring /etc/ceph/ceph.client.admin.keyring --gen-key -n client.admin --cap mon 'allow *' --cap osd 'allow *' --cap mds 'allow *' --cap mgr 'allow *'
+      args:
+        creates: /etc/ceph/ceph.client.admin.keyring
+    - name: Generate key for bootstrap
+      ansible.builtin.command: ceph-authtool --create-keyring /var/lib/ceph/bootstrap-osd/ceph.keyring --gen-key -n client.bootstrap-osd --cap mon 'profile bootstrap-osd' --cap mgr 'allow r'
+      args:
+        creates: /var/lib/ceph/bootstrap-osd/ceph.keyring
+
+    - name: Import generated key
+      ansible.builtin.command: ceph-authtool /etc/ceph/ceph.mon.keyring --import-keyring /etc/ceph/ceph.client.admin.keyring
+    - name: Import generated key
+      ansible.builtin.command: ceph-authtool /etc/ceph/ceph.mon.keyring --import-keyring /var/lib/ceph/bootstrap-osd/ceph.keyring
+
+    - name: Generate monitor map
+      ansible.builtin.shell: |
+        set -o pipefail
+        FSID=$(grep "^fsid" /etc/ceph/ceph.conf | awk {'print $NF'})
+        NODENAME=$(grep "^mon initial" /etc/ceph/ceph.conf | awk {'print $NF'})
+        NODEIP=$(grep "^mon host" /etc/ceph/ceph.conf | awk {'print $NF'})
+        monmaptool --create --add $NODENAME $NODEIP --fsid $FSID /etc/ceph/monmap
+      args:
+        creates: /etc/ceph/monmap
+        executable: /bin/bash
+
+    - name: Debug monmap 1
+      ansible.builtin.command: monmaptool --print /etc/ceph/monmap
+      register: monmap
+
+    - name: Debug monmap 2
+      ansible.builtin.debug:
+        var: monmap.stdout_lines
+
+    - name: Ensure /var/lib/ceph/mon/ceph-ceph01 is directory
+      ansible.builtin.file:
+        path: /var/lib/ceph/mon/ceph-ceph01
+        state: directory
+        mode: "0755"
+
+    - name: Associate key and monmap to Monitor Daemon; --cluster (Cluster Name)
+      ansible.builtin.shell: |
+        set -o pipefail
+        NODENAME=$(grep "^mon initial" /etc/ceph/ceph.conf | awk {'print $NF'})
+        ceph-mon --cluster ceph --mkfs -i $NODENAME --monmap /etc/ceph/monmap --keyring /etc/ceph/ceph.mon.keyring
+      args:
+        executable: /bin/bash
+
+    - name: Chown -R ceph. /var/lib/ceph/mon/ceph-ceph01 /var/lib/ceph/bootstrap-osd [2]
+      ansible.builtin.file:
+        path: "{{ item }}"
+        owner: ceph
+        group: ceph
+        recurse: true
+      loop:
+        - /var/lib/ceph/mon/ceph-ceph01
+        - /var/lib/ceph/bootstrap-osd
+
+    - name: Start service
+      ansible.builtin.shell: |
+        set -o pipefail
+        NODENAME=$(grep "^mon initial" /etc/ceph/ceph.conf | awk {'print $NF'})
+        systemctl enable --now ceph-mon@$NODENAME
+      args:
+        executable: /bin/bash
+
+    - name: Enable Messenger v2 Protocol
+      ansible.builtin.command: ceph mon enable-msgr2
+
+    - name: Enable Placement Groups auto scale module
+      ansible.builtin.command: ceph mgr module enable pg_autoscaler
+
+    - name: Create a directory for Manager Daemon
+      ansible.builtin.file:
+        path: /var/lib/ceph/mgr/ceph-ceph01
+        state: directory
+        mode: "0755"
+
+    - name: Create auth key
+      ansible.builtin.shell: |
+        set -o pipefail
+        NODENAME=$(grep "^mon initial" /etc/ceph/ceph.conf | awk {'print $NF'})
+        ceph auth get-or-create mgr.$NODENAME mon 'allow profile mgr' osd 'allow *' mds 'allow *'
+      args:
+        executable: /bin/bash
+
+    - name: Create /etc/ceph/ceph.mgr.admin.keyring
+      ansible.builtin.shell: |
+        set -o pipefail
+        NODENAME=$(grep "^mon initial" /etc/ceph/ceph.conf | awk {'print $NF'})
+        ceph auth get-or-create mgr.ceph01 > /etc/ceph/ceph.mgr.admin.keyring
+      args:
+        creates: /etc/ceph/ceph.mgr.admin.keyring
+        executable: /bin/bash
+
+    - name: Ensure /var/lib/ceph/mgr/ceph-ceph01/keyring is present
+      ansible.builtin.copy:
+        remote_src: true
+        src: /etc/ceph/ceph.mgr.admin.keyring
+        dest: /var/lib/ceph/mgr/ceph-ceph01/keyring
+        mode: "0644"
+
+    - name: Chown ceph. /etc/ceph/ceph.mgr.admin.keyring
+      ansible.builtin.file:
+        path: /etc/ceph/ceph.mgr.admin.keyring
+        owner: ceph
+        group: ceph
+
+    - name: Chown ceph. /var/lib/ceph/mon/ceph-ceph01
+      ansible.builtin.file:
+        path: /var/lib/ceph/mon/ceph-ceph01
+        owner: ceph
+        group: ceph
+        recurse: true
+
+    - name: Start ceph-mgr@ceph01
+      ansible.builtin.shell: |
+        set -o pipefail
+        NODENAME=$(grep "^mon initial" /etc/ceph/ceph.conf | awk {'print $NF'})
+        systemctl enable --now ceph-mgr@$NODENAME
+      args:
+        executable: /bin/bash
+
+    - name: Ensure test is done and result is saved
+      ansible.builtin.command: ceph -s
+      register: result
+      check_mode: false
+      changed_when: false
+
+    - name: Ensure test result is shown
+      ansible.builtin.debug:
+        var: result.stdout_lines
+
+    - name: Ensure ceph-mon port is open in FW
+      ansible.posix.firewalld:
+        service: ceph-mon
+        immediate: true
+        permanent: true
+        state: enabled
+      when: false
+
+...

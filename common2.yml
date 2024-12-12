@@ -1,0 +1,17 @@
+#
+#
+---
+- name: Part 2
+  hosts: ceph
+  become: true
+  serial: 1
+  tasks:
+    - name: Do ceph-volume lvm create --data /dev/sdb1
+      ansible.builtin.command: ceph-volume lvm create --data /dev/sdb1
+      args:
+        creates: /dev/mapper/ceph*
+
+#  parted --script /dev/sdb 'mklabel gpt'; \
+#  parted --script /dev/sdb "mkpart primary 0% 100%"; \
+#  ceph-volume lvm create --data /dev/sdb1
+...

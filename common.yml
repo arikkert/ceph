@@ -1,0 +1,72 @@
+#
+#
+---
+- name: Common stuff
+  hosts: ceph
+  become: true
+  tasks:
+
+    - name: TZ {{ timezone }}
+      community.general.timezone:
+        name: "{{ timezone }}"
+    - name: Ensure ceph is installed
+      ansible.builtin.apt:
+        name: ceph
+        update_cache: true
+    - name: Ensure ceph.conf is configured via template
+      ansible.builtin.template:
+        src: "{{ item }}.j2"
+        dest: /etc/ceph/{{ item }}
+        mode: "0644"
+      loop:
+        - ceph.conf
+
+    - name: Chown ceph. /etc/ceph/ceph.* [1]
+      ansible.builtin.find:
+        paths: /etc/ceph/
+        pattern: "ceph.*"
+      register: filelist
+    - name: Chown ceph /etc/ceph/ceph.* [2]
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        owner: ceph
+        group: ceph
+      loop: "{{ filelist.files }}"
+
+    - name: Chown -R ceph. /var/lib/ceph/bootstrap-osd [2]
+      ansible.builtin.file:
+        path: /var/lib/ceph/bootstrap-osd
+        owner: ceph
+        group: ceph
+        recurse: true
+
+    - name: Gparted create /dev/sdb1
+      community.general.parted:
+        device: /dev/sdb
+        number: 1
+        label: "gpt"
+        part_start: "0%"
+        part_end: "100%"
+        flags: [lvm]
+        state: present
+      # deze creates /dev/sdb1, maar creates is geen parameter van module gparted
+
+    - name: Ensure original login scripts are saved
+      become: false
+      ansible.builtin.command: "cp -p {{ item }} {{ item }}.bak"
+      args:
+        creates: "{{ item }}.bak"
+      loop:
+        - .bashrc
+        - .profile
+    - name: Ensure alias to quickly login to ceph user is present
+      become: false
+      ansible.builtin.lineinfile:
+        path: "{{ item }}"
+        line: "alias c='sudo su -m {{ ceph_user }}'	# Line managed by Ansible"
+        backup: true
+      loop:
+        - .bashrc
+        - .profile
+
+...

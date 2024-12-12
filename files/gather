@@ -1,0 +1,12 @@
+# File managed by Ansible
+ROOK_EXTERNAL_FSID=$(ceph fsid)
+
+ROOK_EXTERNAL_CEPH_MON_DATA=$(ceph mon dump -f json 2>/dev/null|jq --raw-output .mons[0].name)=$(ceph mon dump -f json 2>/dev/null|jq --raw-output .mons[0].public_addrs.addrvec[0].addr)
+
+ROOK_EXTERNAL_ADMIN_SECRET=$(ceph auth get-key client.admin)
+
+clear
+echo 'export NAMESPACE=rook-ceph-external'
+echo 'export ROOK_EXTERNAL_FSID='"$ROOK_EXTERNAL_FSID"
+echo 'export ROOK_EXTERNAL_CEPH_MON_DATA='"$ROOK_EXTERNAL_CEPH_MON_DATA"
+echo 'export ROOK_EXTERNAL_ADMIN_SECRET='"$ROOK_EXTERNAL_ADMIN_SECRET"

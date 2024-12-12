@@ -1,0 +1,27 @@
+#
+# File managed by Ansible
+#
+
+{% for host in groups['cephadmin'] %}
+[global]
+# specify cluster network for monitoring
+cluster network = {{ hostvars[host].ansible_default_ipv4.address }}/{{ hostvars[host].ansible_default_ipv4.prefix  }}
+# specify public network
+public network = {{ hostvars[host].ansible_default_ipv4.address }}/{{ hostvars[host].ansible_default_ipv4.prefix  }}
+# specify UUID genarated above
+fsid =  319dd8c4-af0a-4ea1-941c-6ab5ffc73264
+# specify IP address of Monitor Daemon
+mon host = {{ hostvars[host].ansible_default_ipv4.address }}
+# specify Hostname of Monitor Daemon
+mon initial members = {{ hostvars[host].ansible_hostname }}
+osd pool default crush rule = -1
+
+# mon.(Node name)
+[mon.{{ hostvars[host].ansible_hostname }}]
+# specify Hostname of Monitor Daemon
+host = {{ hostvars[host].ansible_hostname }}
+# specify IP address of Monitor Daemon
+mon addr = {{ hostvars[host].ansible_default_ipv4.address }}
+# allow to delete pools
+mon allow pool delete = true
+{% endfor %}

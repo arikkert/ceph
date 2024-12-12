@@ -1,0 +1,90 @@
+---
+- name: Ensure Ceph VMs are checked
+  hosts: ceph
+  become: true
+  tasks:
+
+    - name: Debug
+      ansible.builtin.debug:
+        msg:
+          - "ansible_distribution: {{ _ansible_distribution }}"
+          - "ansible_distribution_major_version: {{ _ansible_distribution_major_version }}"
+      when: true
+
+    - name: Ensure target OS is {{ _ansible_distribution }} {{ _ansible_distribution_major_version }}, else quit # noqa: name[template]
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == _ansible_distribution
+          - ansible_distribution_major_version | int == _ansible_distribution_major_version
+        fail_msg: "Playbook only suitable for OS family {{ _ansible_distribution }} major version {{ _ansible_distribution_major_version }}"
+        success_msg: "Yes, OS is fine"
+
+    - name: Debug
+      ansible.builtin.debug:
+        msg:
+          - "ansible_devices.sdb.size: {{ ansible_devices.sdb.size }}"
+      when: true
+
+    - name: Ensure target VM has SDB device with size 100 GB, else quit # noqa: name[template]
+      ansible.builtin.assert:
+        that:
+          - ansible_devices.sdb.size >= "100.00 GB"
+
+- name: Ensure Ceph admin VM is checked
+  hosts: cephadmin
+  become: true
+
+  tasks:
+
+    - name: Debug
+      ansible.builtin.debug:
+        msg:
+          - "ansible_processor_vcpus: {{ ansible_processor_vcpus }}"
+          - "ansible_memtotal_mb: {{ ansible_memtotal_mb }}"
+      when: true
+
+    - name: Assert
+      ansible.builtin.assert:
+        that:
+          - ansible_processor_vcpus | int >= 2
+          - ansible_memtotal_mb | int >= 3000
+
+- name: Ensure Ceph nonadmin VMs are checked
+  hosts: cephnonadmin
+  become: true
+  tasks:
+
+    - name: Debug
+      ansible.builtin.debug:
+        msg:
+          - "ansible_processor_vcpus: {{ ansible_processor_vcpus }}"
+          - "ansible_memtotal_mb: {{ ansible_memtotal_mb }}"
+      when: true
+
+    - name: Assert
+      ansible.builtin.assert:
+        that:
+          - ansible_processor_vcpus | int >= 2
+          - ansible_memtotal_mb | int >= 3000
+
+- name: Ensure Ceph nonadmin VMs are checked
+  hosts: cephclients
+  become: true
+  tasks:
+
+    - name: Debug
+      ansible.builtin.debug:
+        msg:
+          - "ansible_distribution: {{ _ansible_distribution }}"
+          - "ansible_distribution_major_version: {{ _ansible_distribution_major_version }}"
+      when: true
+
+    - name: Ensure target OS is {{ _ansible_distribution }} {{ _ansible_distribution_major_version }}, else quit # noqa: name[template]
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == _ansible_distribution
+          - ansible_distribution_major_version | int == _ansible_distribution_major_version
+        fail_msg: "Playbook only suitable for OS family {{ _ansible_distribution }} major version {{ _ansible_distribution_major_version }}"
+        success_msg: "Yes, OS is fine"
+
+...

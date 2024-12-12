@@ -1,0 +1,11 @@
+# File managed by Ansible
+if ! rbd showmapped | grep rbd
+then
+	echo "map RADOS Block Device"
+	sudo rbd map rbd01
+fi
+if ! mountpoint /mnt
+then
+	echo "mount dan maar"
+	sudo mount /dev/rbd0 /mnt
+fi

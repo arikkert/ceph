@@ -1,0 +1,61 @@
+#
+#
+---
+- name: Distribute config from admin node to storage nodes (fetch)
+  hosts: cephadmin
+  become: true
+  tasks:
+    - name: Copy ceph.client.admin.keyring to storage nodes [1]
+      ansible.builtin.fetch:
+        src: /etc/ceph/ceph.client.admin.keyring
+        dest: /tmp/
+        flat: true
+    - name: Copy ceph.keyring to storge nodes [1]
+      ansible.builtin.fetch:
+        src: /var/lib/ceph/bootstrap-osd/ceph.keyring
+        dest: /tmp/
+        flat: true
+
+- name: Distribute config from admin node to storage nodes (push)
+  hosts: cephnonadmin
+  become: true
+  tasks:
+    - name: Copy ceph.client.admin.keyring to storage nodes [2]
+      ansible.builtin.copy:
+        src: /tmp/ceph.client.admin.keyring
+        dest: /etc/ceph/
+        owner: ceph
+        group: ceph
+        mode: "0644"
+    - name: Copy ceph.keyring to storge nodes [2]
+      ansible.builtin.copy:
+        src: /tmp/ceph.keyring
+        dest: /var/lib/ceph/bootstrap-osd/
+        owner: ceph
+        group: ceph
+        mode: "0644"
+
+- name: Create LVM
+  hosts: ceph
+  become: true
+  serial: 1
+  tasks:
+    - name: Do gparted
+      community.general.parted:
+        device: /dev/sdb
+        number: 1
+        label: "gpt"
+        part_start: "0%"
+        part_end: "100%"
+        flags: [lvm]
+        state: present
+
+    - name: Do ceph-volume lvm create --data /dev/sdb1
+      ansible.builtin.command: ceph-volume lvm create --data /dev/sdb1
+      args:
+        creates: /dev/sdb1
+
+#  parted --script /dev/sdb 'mklabel gpt'; \
+#  parted --script /dev/sdb "mkpart primary 0% 100%"; \
+#  ceph-volume lvm create --data /dev/sdb1
+...

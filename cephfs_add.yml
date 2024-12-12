@@ -1,0 +1,76 @@
+#
+# https://www.server-world.info/en/note?os=Ubuntu_24.04&p=ceph&f=4
+---
+- name: Only Admin node
+  hosts: cephadmin
+  become: true
+  tasks:
+
+    - name: Configure MDS (MetaData Server) on a Node.
+      block:
+
+        - name: Ensure /var/lib/ceph/mds/ceph-ceph01 is directory
+          ansible.builtin.file:
+            path: /var/lib/ceph/mds/ceph-ceph01
+            state: directory
+            mode: "0755"
+
+        - name: Generate keyring for mds
+          ansible.builtin.command: ceph-authtool --create-keyring /var/lib/ceph/mds/ceph-ceph01/keyring --gen-key -n mds.ceph01
+          args:
+            creates: /var/lib/ceph/mds/ceph-ceph01/keyring
+
+        - name: Ensure owership is correct
+          ansible.builtin.command: chown -R {{ ceph_user }} /var/lib/ceph/mds/ceph-ceph01
+
+        - name: Ensure /var/lib/ceph/mds/ceph-node01/keyring is configured
+          ansible.builtin.command: ceph auth add mds.ceph01 osd "allow rwx" mds "allow" mon "allow profile mds" -i /var/lib/ceph/mds/ceph-ceph01/keyring
+
+        - name: Ensure service running
+          ansible.builtin.service:
+            name: ceph-mds@{{ ansible_hostname }}
+            state: started
+            enabled: true
+
+    - name: Create 2 RADOS pools for Data and MeataData on MDS Node.
+      block:
+
+        - name: Ensure RADOS pools are created
+          ansible.builtin.command: ceph osd pool create {{ item }} 64
+          loop:
+            - cephfs_data
+            - cephfs_metadata
+
+        - name: Ensure FS is created
+          ansible.builtin.command: ceph fs new cephfs cephfs_metadata cephfs_data
+
+        - name: Ensure fs listed is saved
+          ansible.builtin.command: ceph fs ls
+          register: result
+          check_mode: false
+
+        - name: Ensure fs is listed
+          ansible.builtin.debug:
+            var: result.stdout_lines
+
+        - name: Ensure mds status is saved
+          ansible.builtin.command: ceph mds stat
+          register: result
+          check_mode: false
+
+        - name: Ensure mds status is listed
+          ansible.builtin.debug:
+            var: result.stdout_lines
+          failed_when: "'active' not in result.stdout"
+
+        - name: Ensure fs status cephfs is saved
+          ansible.builtin.command: ceph fs status cephfs
+          register: result
+          check_mode: false
+
+        - name: Ensure fs status cephfs is listed
+          ansible.builtin.debug:
+            var: result.stdout_lines
+          failed_when: "'cephfs_metadata' not in result.stdout or 'cephfs_data' not in result.stdout"
+
+...
