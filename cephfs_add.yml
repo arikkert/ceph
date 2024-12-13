@@ -3,28 +3,31 @@
 ---
 - name: Only Admin node
   hosts: cephadmin
+  vars:
+    cephadminhost: "{{ groups['cephadmin'] | first | split('.') | first }}" # short name of the first entry in the list of the group
   become: true
   tasks:
 
     - name: Configure MDS (MetaData Server) on a Node.
       block:
 
-        - name: Ensure /var/lib/ceph/mds/ceph-ceph01 is directory
+        - name: Ensure /var/lib/ceph/mds/ceph-{{ cephadminhost }} is directory # noqa: name[template]
           ansible.builtin.file:
-            path: /var/lib/ceph/mds/ceph-ceph01
+            path: /var/lib/ceph/mds/ceph-{{ cephadminhost }}
             state: directory
             mode: "0755"
+          tags: bla
 
         - name: Generate keyring for mds
-          ansible.builtin.command: ceph-authtool --create-keyring /var/lib/ceph/mds/ceph-ceph01/keyring --gen-key -n mds.ceph01
+          ansible.builtin.command: ceph-authtool --create-keyring /var/lib/ceph/mds/ceph-{{ cephadminhost }}/keyring --gen-key -n mds.{{ groups['cephadmin'] | first | split('.') | first }}
           args:
-            creates: /var/lib/ceph/mds/ceph-ceph01/keyring
+            creates: /var/lib/ceph/mds/ceph-{{ groups['cephadmin'] | first | split('.') | first }}/keyring
 
         - name: Ensure owership is correct
-          ansible.builtin.command: chown -R {{ ceph_user }} /var/lib/ceph/mds/ceph-ceph01
+          ansible.builtin.command: chown -R {{ ceph_user }} /var/lib/ceph/mds/ceph-{{ cephadminhost }}
 
-        - name: Ensure /var/lib/ceph/mds/ceph-node01/keyring is configured
-          ansible.builtin.command: ceph auth add mds.ceph01 osd "allow rwx" mds "allow" mon "allow profile mds" -i /var/lib/ceph/mds/ceph-ceph01/keyring
+        - name: Ensure /var/lib/ceph/mds/ceph-{{ cephadminhost }}/keyring is configured # noqa: name[template]
+          ansible.builtin.command: ceph auth add mds.{{ cephadminhost }} osd "allow rwx" mds "allow" mon "allow profile mds" -i /var/lib/ceph/mds/ceph-{{ cephadminhost }}/keyring
 
         - name: Ensure service running
           ansible.builtin.service:

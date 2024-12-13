@@ -39,6 +39,7 @@ Variables
 Ansible inventory containing definitions for
 3 clusters each with 1 control node and 2 worker nodes.
 The playbooks only refer to the group names and never tot the individual hosts (*bla.mydomain*) so you can choose your own names for the actual hostnames.
+In this implementation (plybooks) there should be exactly one ceph adminhost.
 
     [cephadmin]
     ceph01.mydomain

@@ -4,6 +4,8 @@
 ---
 - name: Aleen Admin node
   hosts: cephadmin
+  vars:
+    cephadminhost: "{{ groups['cephadmin'] | first | split('.') | first }}" # short name of the first entry in the list of the group
   become: true
   tasks:
 
@@ -44,9 +46,9 @@
       ansible.builtin.debug:
         var: monmap.stdout_lines
 
-    - name: Ensure /var/lib/ceph/mon/ceph-ceph01 is directory
+    - name: Ensure /var/lib/ceph/mon/ceph-{{ cephadminhost }} is directory # noqa: name[template]
       ansible.builtin.file:
-        path: /var/lib/ceph/mon/ceph-ceph01
+        path: /var/lib/ceph/mon/ceph-{{ cephadminhost }}
         state: directory
         mode: "0755"
 
@@ -58,14 +60,14 @@
       args:
         executable: /bin/bash
 
-    - name: Chown -R ceph. /var/lib/ceph/mon/ceph-ceph01 /var/lib/ceph/bootstrap-osd [2]
+    - name: Chown -R ceph. /var/lib/ceph/mon/ceph-{{ cephadminhost }} /var/lib/ceph/bootstrap-osd [2] # noqa: name[template]
       ansible.builtin.file:
         path: "{{ item }}"
         owner: ceph
         group: ceph
         recurse: true
       loop:
-        - /var/lib/ceph/mon/ceph-ceph01
+        - /var/lib/ceph/mon/ceph-{{ cephadminhost }}
         - /var/lib/ceph/bootstrap-osd
 
     - name: Start service
@@ -84,7 +86,7 @@
 
     - name: Create a directory for Manager Daemon
       ansible.builtin.file:
-        path: /var/lib/ceph/mgr/ceph-ceph01
+        path: /var/lib/ceph/mgr/ceph-{{ cephadminhost }}
         state: directory
         mode: "0755"
 
@@ -100,16 +102,16 @@
       ansible.builtin.shell: |
         set -o pipefail
         NODENAME=$(grep "^mon initial" /etc/ceph/ceph.conf | awk {'print $NF'})
-        ceph auth get-or-create mgr.ceph01 > /etc/ceph/ceph.mgr.admin.keyring
+        ceph auth get-or-create mgr.{{ cephadminhost }} > /etc/ceph/ceph.mgr.admin.keyring
       args:
         creates: /etc/ceph/ceph.mgr.admin.keyring
         executable: /bin/bash
 
-    - name: Ensure /var/lib/ceph/mgr/ceph-ceph01/keyring is present
+    - name: Ensure /var/lib/ceph/mgr/ceph-{{ cephadminhost }}/keyring is present # noqa: name[template]
       ansible.builtin.copy:
         remote_src: true
         src: /etc/ceph/ceph.mgr.admin.keyring
-        dest: /var/lib/ceph/mgr/ceph-ceph01/keyring
+        dest: /var/lib/ceph/mgr/ceph-{{ cephadminhost }}/keyring
         mode: "0644"
 
     - name: Chown ceph. /etc/ceph/ceph.mgr.admin.keyring
@@ -118,14 +120,14 @@
         owner: ceph
         group: ceph
 
-    - name: Chown ceph. /var/lib/ceph/mon/ceph-ceph01
+    - name: Chown ceph. /var/lib/ceph/mon/ceph-{{ cephadminhost }} # noqa: name[template]
       ansible.builtin.file:
-        path: /var/lib/ceph/mon/ceph-ceph01
+        path: /var/lib/ceph/mon/ceph-{{ cephadminhost }}
         owner: ceph
         group: ceph
         recurse: true
 
-    - name: Start ceph-mgr@ceph01
+    - name: Start ceph-mgr@{{ cephadminhost }}
       ansible.builtin.shell: |
         set -o pipefail
         NODENAME=$(grep "^mon initial" /etc/ceph/ceph.conf | awk {'print $NF'})

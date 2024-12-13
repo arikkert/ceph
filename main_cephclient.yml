@@ -4,9 +4,11 @@
 ---
 - name: Ensure ceph.client.admin.keyring is fetched from Admin node ( for copying later to the cephclient(s) )
   hosts: cephadmin
+  vars:
+    cephadminhost: "{{ groups['cephadmin'] | first | split('.') | first }}" # short name of the first entry in the list of the group
   become: true
   tasks:
-    - name: Copy ceph01:/etc/ceph/ceph.client.admin.keyring to ceph-client:/etc/ceph/ [1]
+    - name: Copy {{ cephadminhost }}:/etc/ceph/ceph.client.admin.keyring to ceph-client:/etc/ceph/ [1] # noqa: name[template]
       ansible.builtin.fetch:
         src: /etc/ceph/ceph.client.admin.keyring
         dest: /tmp/
@@ -14,6 +16,8 @@
 
 - name: Configure Ceph clients
   hosts: cephclients
+  vars:
+    cephadminhost: "{{ groups['cephadmin'] | first | split('.') | first }}" # short name of the first entry in the list of the group
   become: true
   tasks:
 
@@ -34,7 +38,7 @@
       loop:
         - ceph.conf
 
-    - name: Copy ceph01:/etc/ceph/ceph.client.admin.keyring to ceph-client:/etc/ceph/ [2]
+    - name: Copy {{ cephadminhost }}:/etc/ceph/ceph.client.admin.keyring to ceph-client:/etc/ceph/ [2] # noqa: name[template]
       ansible.builtin.copy:
         src: /tmp/ceph.client.admin.keyring
         dest: /etc/ceph/
