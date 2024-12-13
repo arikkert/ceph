@@ -1,4 +1,5 @@
 #
+# https://www.server-world.info/en/note?os=Ubuntu_24.04&p=ceph&f=4
 #
 ---
 - name: Ensure ceph.client.admin.keyring is fetched from Admin node ( for copying later to the cephclient(s) )
@@ -63,7 +64,7 @@
         - client_rbd_del.sh
         - create_file
         - gather
-        - mount_ceph
+        - client_ceph_rbd_mount
 
     - name: Ensure some own tools exist on target {{ ansible_host }}
       ansible.builtin.template:
@@ -73,6 +74,6 @@
         owner: ansible
         group: ansible
       loop:
-        - client_cephfs_add.sh
+        - client_cephfs_mount.sh
 
 ...

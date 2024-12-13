@@ -1,9 +1,11 @@
 #!/bin/bash
 # File managed by Ansible
-# TODO: maak idempotent
-
+#
+# https://www.server-world.info/en/note?os=Ubuntu_24.04&p=ceph&f=4
 #
 # CephFS = Ceph File System
+#
+# TODO: maak idempotent
 #
 
 sudo ceph-authtool -p /etc/ceph/ceph.client.admin.keyring > /var/tmp/admin.key

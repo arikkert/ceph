@@ -2,6 +2,8 @@
 - name: Ensure Ceph VMs are checked
   hosts: ceph
   become: true
+  vars:
+    size_gb: 100
   tasks:
 
     - name: Debug
@@ -25,10 +27,10 @@
           - "ansible_devices.sdb.size: {{ ansible_devices.sdb.size }}"
       when: true
 
-    - name: Ensure target VM has SDB device with size 100 GB, else quit # noqa: name[template]
+    - name: Ensure target VM has SDB device with size {{ size_gb }} GB, else quit # noqa: name[template]
       ansible.builtin.assert:
         that:
-          - ansible_devices.sdb.size >= "100.00 GB"
+          - ansible_devices.sdb.size >= "{{ size_gb }}.00 GB"
 
 - name: Ensure Ceph admin VM is checked
   hosts: cephadmin

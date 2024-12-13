@@ -1,7 +1,7 @@
 #!/bin/bash -x
 # File managed by Ansible
 #
-# https://www.server-world.info/en/note?os=Ubuntu_24.04&p=ceph
+# https://www.server-world.info/en/note?os=Ubuntu_24.04&p=ceph&f=3
 #
 
 #

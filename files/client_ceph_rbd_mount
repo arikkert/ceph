@@ -1,11 +1,15 @@
 # File managed by Ansible
+#
+# https://www.server-world.info/en/note?os=Ubuntu_24.04&p=ceph&f=3
+#
 if ! rbd showmapped | grep rbd
 then
 	echo "map RADOS Block Device"
 	sudo rbd map rbd01
 fi
-if ! mountpoint /mnt
+MP=/mnt/rbd
+if ! mountpoint ${MP}
 then
 	echo "mount dan maar"
-	sudo mount /dev/rbd0 /mnt
+	sudo mount /dev/rbd0 ${MP}
 fi
