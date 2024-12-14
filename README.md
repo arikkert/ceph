@@ -64,8 +64,9 @@ ansible group_vars for group ceph with this content:
 
 Other variables:
 
-    *domain*	# the domain of the used hosts, here *mydomain*
-    *timezone*  # the timezone on ceph servers and client, e.g. *Europe/Amsterdam*
+*domain*    # the domain of the used hosts, here *mydomain*
+
+*timezone*  # the timezone on ceph servers and client, e.g. *Europe/Amsterdam*
 
 *files/password.txt* contains the dashboard password I choosed.
 I used `ansible-vault` to encrypt it.
