@@ -16,18 +16,39 @@
             path: /var/lib/ceph/mds/ceph-{{ cephadminhost }}
             state: directory
             mode: "0755"
-          tags: bla
 
-        - name: Generate keyring for mds
+        - name: Generate keyring for mds in /var/lib/ceph/mds/ceph-{{ cephadminhost }}/keyring # noqa: name[template]
           ansible.builtin.command: ceph-authtool --create-keyring /var/lib/ceph/mds/ceph-{{ cephadminhost }}/keyring --gen-key -n mds.{{ groups['cephadmin'] | first | split('.') | first }}
           args:
-            creates: /var/lib/ceph/mds/ceph-{{ groups['cephadmin'] | first | split('.') | first }}/keyring
+            creates: /var/lib/ceph/mds/ceph-{{ cephadminhost }}/keyring
 
-        - name: Ensure owership is correct
-          ansible.builtin.command: chown -R {{ ceph_user }} /var/lib/ceph/mds/ceph-{{ cephadminhost }}
+        - name: Ensure ownership is correct
+          ansible.builtin.file:
+            dest: /var/lib/ceph/mds/ceph-{{ cephadminhost }}
+            owner: "{{ ceph_user }}"
+            recurse: true
+
+        - name: Ensure mds keyring is registered
+          ansible.builtin.command: ceph auth get mds.{{ cephadminhost }}
+          register: result
+          changed_when: false
+          check_mode: false
 
         - name: Ensure /var/lib/ceph/mds/ceph-{{ cephadminhost }}/keyring is configured # noqa: name[template]
           ansible.builtin.command: ceph auth add mds.{{ cephadminhost }} osd "allow rwx" mds "allow" mon "allow profile mds" -i /var/lib/ceph/mds/ceph-{{ cephadminhost }}/keyring
+          when: "'caps osd = \"allow rwx\"' not in result.stdout or
+                 'caps mds = \"allow\"' not in result.stdout or
+                 'caps mon = \"allow profile mds\"' not in result.stdout"
+
+        - name: Ensure mds keyring is registered
+          ansible.builtin.command: ceph auth get mds.{{ cephadminhost }}
+          register: result
+          changed_when: false
+          check_mode: false
+
+        - name: Ensure mds config is shown
+          ansible.builtin.debug:
+            var: result.stdout_lines
 
         - name: Ensure service running
           ansible.builtin.service:
@@ -38,38 +59,56 @@
     - name: Create 2 RADOS pools for Data and MeataData on MDS Node.
       block:
 
+        - name: Ensure osd pool list is registered
+          ansible.builtin.command: ceph osd pool ls
+          register: result
+          changed_when: false
+          check_mode: false
+
         - name: Ensure RADOS pools are created
           ansible.builtin.command: ceph osd pool create {{ item }} 64
           loop:
             - cephfs_data
             - cephfs_metadata
+          when: "'cephfs_data' not in result.stdout or
+                 'cephfs_metadata' not in result.stdout"
+
+        - name: Ensure fs list is registered
+          ansible.builtin.command: ceph fs ls
+          register: result
+          changed_when: false
+          check_mode: false
 
         - name: Ensure FS is created
           ansible.builtin.command: ceph fs new cephfs cephfs_metadata cephfs_data
+          when: "'name: cephfs, metadata pool: cephfs_metadata, data pools: [cephfs_data ]' not in result.stdout_lines"
 
-        - name: Ensure fs listed is saved
+        - name: Ensure fs listed is registered (again)
           ansible.builtin.command: ceph fs ls
           register: result
           check_mode: false
+          changed_when: false
 
         - name: Ensure fs is listed
           ansible.builtin.debug:
             var: result.stdout_lines
 
-        - name: Ensure mds status is saved
+        - name: Ensure mds status is registered
           ansible.builtin.command: ceph mds stat
           register: result
           check_mode: false
+          changed_when: false
 
         - name: Ensure mds status is listed
           ansible.builtin.debug:
             var: result.stdout_lines
           failed_when: "'active' not in result.stdout"
 
-        - name: Ensure fs status cephfs is saved
+        - name: Ensure fs status cephfs is registered
           ansible.builtin.command: ceph fs status cephfs
           register: result
           check_mode: false
+          changed_when: false
 
         - name: Ensure fs status cephfs is listed
           ansible.builtin.debug:
